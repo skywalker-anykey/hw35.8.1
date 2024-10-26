@@ -1,12 +1,13 @@
 package main
 
 import (
-	"fmt"
 	"io"
 	"log"
 	"math/rand"
+	"net"
 	"net/http"
 	"regexp"
+	"time"
 )
 
 type Proverb struct {
@@ -14,10 +15,50 @@ type Proverb struct {
 	Text    string
 }
 
+const (
+	// Настройки сервера
+	addr     = "localhost:12345"
+	protocol = "tcp4"
+	// Сайт с поговорками
+	url = "https://go-proverbs.github.io/"
+)
+
 func main() {
 	// Получаем массив поговорок
 	proverbs := newProverbs()
-	fmt.Println(getRandomProverb(proverbs))
+
+	// Создаем сервер
+	listener, err := net.Listen(protocol, addr)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer func(listener net.Listener) {
+		_ = listener.Close()
+	}(listener)
+
+	// Обрабатываем подключения
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			log.Print(err)
+		}
+		go handleConn(conn, &proverbs)
+	}
+}
+
+func handleConn(conn net.Conn, proverb *[]Proverb) {
+	defer func(conn net.Conn) {
+		_ = conn.Close()
+	}(conn)
+
+	log.Println("New connection from:", conn.RemoteAddr())
+
+	for {
+		p := getRandomProverb(*proverb)
+		_, _ = conn.Write([]byte(p.Text + "\n\r"))
+		_, _ = conn.Write([]byte(p.Address + "\n\r"))
+		time.Sleep(time.Second * 3)
+	}
 }
 
 // newProverbs - конструктор
@@ -37,7 +78,6 @@ func newProverbs() []Proverb {
 
 // getHTML - получает ответ web сервера с поговорками https://go-proverbs.github.io/
 func getHTML() (string, error) {
-	url := "https://go-proverbs.github.io/"
 	resp, err := http.Get(url)
 	if err != nil {
 		return "", err
