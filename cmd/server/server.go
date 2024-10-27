@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"io"
 	"log"
 	"math/rand"
@@ -86,6 +87,11 @@ func getHTML() (string, error) {
 		_ = Body.Close()
 	}(resp.Body)
 
+	// Рекомендация ментора после проверки
+	if resp.StatusCode != http.StatusOK {
+		return "", errors.New(resp.Status)
+	}
+
 	bytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
@@ -107,5 +113,6 @@ func parseHTML(html string) (ar []Proverb) {
 
 // getRandomProverb - получить случайную поговорку
 func getRandomProverb(ar []Proverb) Proverb {
+	rand.Seed(time.Now().UnixNano()) // Рекомендация ментора после проверки, но я бы не добавлял
 	return ar[rand.Intn(len(ar))]
 }
